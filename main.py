@@ -1,5 +1,8 @@
 from __future__ import print_function
 import argparse
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,19 +13,21 @@ from torch.optim.lr_scheduler import StepLR
 from utils.config_utils import read_args, load_config, Dict2Object
 
 
+# define the torch , inherit sth from the module ?
+# 4 layers
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(Net, self).__init__()  # similar to constructor in java
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
+        self.dropout2 = nn.Dropout(0.5)  # drop out : avoid over fitting
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
+        x = F.relu(x)  # activation layer
         x = self.conv2(x)
         x = F.relu(x)
         x = F.max_pool2d(x, 2)
@@ -32,13 +37,15 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
+        output = F.log_softmax(x, dim=1)  # 最大可能性的那个数字
         return output
 
 
+# 每一个epoch都需要所有data，所以我们divide data into batches
+# use training data to update the model parameters
 def train(args, model, device, train_loader, optimizer, epoch):
     """
-    tain the model and return the training accuracy
+    train the model and return the training accuracy
     :param args: input arguments
     :param model: neural network model
     :param device: the device where model stored
@@ -55,14 +62,17 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-    '''Fill your code'''
-    training_acc, training_loss = None, None  # replace this line
+    '''TODO: Fill your code'''
+    if batch_idx % log_interval == 0:
+
+    training_acc, training_loss = None, None  # replace this line:改成我得到的值
     return training_acc, training_loss
 
 
+# data-loader= test loader
 def test(model, device, test_loader):
     """
-    test the model and return the tesing accuracy
+    test the model and return the testing accuracy
     :param model: neural network model
     :param device: the device where model stored
     :param test_loader: data loader
@@ -74,19 +84,36 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             '''Fill your code'''
-            pass
-    testing_acc, testing_loss = None, None  # replace this line
+            data , target = data.to(device), target.to(device)
+            output= model(data.to(device))
+            test_loss += F.nll_loss(output, target.to(device), reduction='sum').item()
+            pred = output.argmax(dim=1, keepDim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+            # pass
+            # a variable is created and do not necessarily need to assign value
+    test_loss/=len(test_loader.dataset)  # len: return the number of elements in a container
+    testing_acc, testing_loss = None, None  # replace this line：比较
     return testing_acc, testing_loss
 
 
+# plot function should generate line charts based on:
+# 1.the records training loss
+# 2.testing loss
+# 3.testing accuracy
+# The plot should include the tle and labels
 def plot(epoches, performance):
     """
-    plot the model peformance
+    plot the model performance
     :param epoches: recorded epoches
     :param performance: recorded performance
     :return:
     """
     """Fill your code"""
+    # 横轴epoch 纵轴performance, 把之前算出来的数据用数组存起来然后画图
+    xpoints= np.array([])
+    ypoints= np.array([])
+    plt.plot(xpoints, ypoints)
+    plt.show()
     pass
 
 
@@ -107,7 +134,7 @@ def run(config):
     test_kwargs = {'batch_size': config.test_batch_size, 'shuffle': True}
     if use_cuda:
         cuda_kwargs = {'num_workers': 1,
-                       'pin_memory': True,}
+                       'pin_memory': True, }
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
@@ -124,9 +151,10 @@ def run(config):
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=config.lr)
+    optimizer = optim.Adadelta(model.parameters(), lr=config.lr) # try to find the best output
 
     """record the performance"""
+    # 这几行都是老师的template
     epoches = []
     training_accuracies = []
     training_loss = []
@@ -137,10 +165,13 @@ def run(config):
     for epoch in range(1, config.epochs + 1):
         train_acc, train_loss = train(config, model, device, train_loader, optimizer, epoch)
         """record training info, Fill your code"""
+        training_accuracies[epoch]=train_acc, training_loss[epoch]=train_loss
         test_acc, test_loss = test(model, device, test_loader)
         """record testing info, Fill your code"""
+        testing_accuracies[epoch]=test_acc, testing_loss[epoch]=test_loss
         scheduler.step()
         """update the records, Fill your code"""
+        #  todo：不会update，怎么update啊
 
     """plotting training performance with the records"""
     plot(epoches, training_loss)
@@ -159,6 +190,7 @@ def plot_mean():
     Plot the mean results after three runs.
     :return:
     """
+    # 需要自己定义record data的函数
     """fill your code"""
 
 
