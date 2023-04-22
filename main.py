@@ -1,6 +1,8 @@
 from __future__ import print_function
 import argparse
 
+import multiprocessing as mp
+# 上面一行是自己加的
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -51,9 +53,11 @@ def train(args, model, device, train_loader, optimizer, epoch):
     :param device: the device where model stored
     :param train_loader: data loader
     :param optimizer: optimizer
-    :param epoch: current epoch
+    :param epoch: current epoch, 对每一个epoch进行分别的train
     :return:
     """
+    sum_loss = 0
+    sum_acc=0
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -62,15 +66,26 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-    '''TODO: Fill your code'''
-    if batch_idx % log_interval == 0:
+        sum_loss += loss.item()
 
-    training_acc, training_loss = None, None  # replace this line:改成我得到的值
+    '''TODO: Fill your code'''
+    count_train= 0
+    for i in range(output.shape[0]):
+        if torch.argmax(output[i],-1).item() == target[i].item():
+            count_train +=1
+    sum_acc += count_train/train_loader.batch_size
+    print("loss: "+str(loss.item()))
+    print("accuracy: "+str(sum_acc/len(train_loader.dataset)))
+    with open("train_"+str(args.seed)+".txt","a") as f:
+        f.write("loss: "+str(loss.item())+" accuracy: "+str(sum_acc/len(train_loader.dataset))+"\n")
+
+    training_acc = sum_acc/len(train_loader.dataset)
+    training_loss = sum_loss/len(train_loader.dataset)   # replace this line:改成我得到的值
     return training_acc, training_loss
 
 
 # data-loader= test loader
-def test(model, device, test_loader):
+def test(args, model, device, test_loader):
     """
     test the model and return the testing accuracy
     :param model: neural network model
@@ -84,15 +99,24 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             '''Fill your code'''
-            data , target = data.to(device), target.to(device)
-            output= model(data.to(device))
-            test_loss += F.nll_loss(output, target.to(device), reduction='sum').item()
-            pred = output.argmax(dim=1, keepDim=True)
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            count=0
+            data, target = data.to(device), target.to(device)
+            output = model(data.to(device))
+            loss= F.nll_loss(output, target.to(device))
+            test_loss += loss.item()
+            for i in range(output.shape[0]):
+               if torch.argmax(output[i], -1).item() == target[i].item():
+                   count+=1
+            correct+= count/test_loader.batch_size
+            print("loss: "+str(loss.item()))
+            print("accuracy: "+str(correct/len(test_loader.dataset)))
+            with open("test_"+str(args.seed)+".txt", "a") as f:
+                f.write("loss: "+str(loss.item())+ "accuracy: "+str(correct/len(test_loader.dataset))+"\n")
             # pass
             # a variable is created and do not necessarily need to assign value
-    test_loss/=len(test_loader.dataset)  # len: return the number of elements in a container
-    testing_acc, testing_loss = None, None  # replace this line：比较
+    test_loss /= len(test_loader.dataset)  # len: return the number of elements in a container
+    testing_acc = correct/len(test_loader.dataset)
+    testing_loss = test_loss/len(test_loader.dataset) # replace this line：比较
     return testing_acc, testing_loss
 
 
@@ -101,7 +125,7 @@ def test(model, device, test_loader):
 # 2.testing loss
 # 3.testing accuracy
 # The plot should include the tle and labels
-def plot(epoches, performance):
+def plot(epoches, performance, title):
     """
     plot the model performance
     :param epoches: recorded epoches
@@ -110,19 +134,20 @@ def plot(epoches, performance):
     """
     """Fill your code"""
     # 横轴epoch 纵轴performance, 把之前算出来的数据用数组存起来然后画图
-    xpoints= np.array([])
-    ypoints= np.array([])
-    plt.plot(xpoints, ypoints)
+    x_points = epoches
+    y_points = performance
+    plt.plot(x_points, y_points)
+    plt.title(title)
+    plt.savefig()
     plt.show()
     pass
 
 
-def run(config):
+def run(config, pipe ):
     use_cuda = not config.no_cuda and torch.cuda.is_available()
     use_mps = not config.no_mps and torch.backends.mps.is_available()
 
     torch.manual_seed(config.seed)
-
     if use_cuda:
         device = torch.device("cuda")
     elif use_mps:
@@ -151,7 +176,7 @@ def run(config):
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=config.lr) # try to find the best output
+    optimizer = optim.Adadelta(model.parameters(), lr=config.lr)  # try to find the best output
 
     """record the performance"""
     # 这几行都是老师的template
@@ -165,13 +190,15 @@ def run(config):
     for epoch in range(1, config.epochs + 1):
         train_acc, train_loss = train(config, model, device, train_loader, optimizer, epoch)
         """record training info, Fill your code"""
-        training_accuracies[epoch]=train_acc, training_loss[epoch]=train_loss
-        test_acc, test_loss = test(model, device, test_loader)
+        training_accuracies.append(train_acc)
+        training_loss.append(train_loss)
+        test_acc, test_loss= test(config, model, device, test_loader)
         """record testing info, Fill your code"""
-        testing_accuracies[epoch]=test_acc, testing_loss[epoch]=test_loss
+        testing_accuracies.append((test_acc))
+        testing_loss.append(test_loss)
         scheduler.step()
         """update the records, Fill your code"""
-        #  todo：不会update，怎么update啊
+        epoches.append(epoch)
 
     """plotting training performance with the records"""
     plot(epoches, training_loss)
@@ -192,6 +219,7 @@ def plot_mean():
     """
     # 需要自己定义record data的函数
     """fill your code"""
+
 
 
 if __name__ == '__main__':
