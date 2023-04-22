@@ -1,19 +1,22 @@
 from __future__ import print_function
-import argparse
-import os
-import multiprocessing
 
 # 上面一行是自己加的
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
+import os
+import multiprocessing
+import argparse
 
-from utils.config_utils import read_args, load_config, Dict2Object
+from config_utils import read_args
+
+
+class args_input:
+    config_file = ''
 
 
 # define the torch , inherit sth from the module ?
@@ -102,8 +105,8 @@ def test(args, model, device, test_loader):
             '''Fill your code'''
             count = 0
             data, target = data.to(device), target.to(device)
-            output = model(data.to(device))
-            loss = F.nll_loss(output, target.to(device))
+            output = model(data)
+            loss = F.nll_loss(output, target)
             test_loss += loss.item()
             for i in range(output.shape[0]):
                 if torch.argmax(output[i], -1).item() == target[i].item():
@@ -115,7 +118,7 @@ def test(args, model, device, test_loader):
                 f.write("loss: " + str(loss.item()) + "accuracy: " + str(correct / len(test_loader.dataset)) + "\n")
             # pass
             # a variable is created and do not necessarily need to assign value
-    test_loss /= len(test_loader.dataset)  # len: return the number of elements in a container
+    # len: return the number of elements in a container
     testing_acc = correct / len(test_loader.dataset)
     testing_loss = test_loss / len(test_loader.dataset)  # replace this line：比较
     return testing_acc, testing_loss
@@ -144,7 +147,7 @@ def plot(epoches, performance, title):
     pass
 
 
-def run(config, pipe):
+def run(config, pip):
     use_cuda = not config.no_cuda and torch.cuda.is_available()
     use_mps = not config.no_mps and torch.backends.mps.is_available()
 
@@ -210,7 +213,10 @@ def run(config, pipe):
 
     if config.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
-
+    pip.send(training_accuracies)
+    pip.send(training_loss)
+    pip.send(testing_accuracies)
+    pip.send(testing_loss)
 
 def plot_mean(result_matrix):
     """
@@ -257,12 +263,11 @@ def plot_mean(result_matrix):
 
 
 if __name__ == '__main__':
-    pips=[]
-    processes=[]
-    final_result=[[],[],[],[]]
-    files= os.listdir(".")
-
-    #arg = read_args()
+    pips = []
+    processes = []
+    final_result = [[], [], [], []]
+    files = os.listdir(".")
+    arg = read_args()
 
     for file in files:
         if ".txt" in file:
@@ -271,17 +276,16 @@ if __name__ == '__main__':
                 pass
         if ".yaml" in file:
             # multi-processing 的内容
-            arg = read_args()
+            arg = args_input()
             arg.config_file = file
-            config = load_config(arg)
+            config = args_input()
             pipe_receive, pipe_send = multiprocessing.Pipe(duplex=False)
             pips.append(pipe_receive)
             processes.append(multiprocessing.Process(target=run, args=(config, pipe_send)))
             processes[-1].start()
 
-
     """toad training settings"""
-    #config = load_config(arg)
+    # config = load_config(arg)
 
     """train model and record results"""
     for pipe in pips:

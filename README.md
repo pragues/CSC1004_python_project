@@ -13,7 +13,7 @@ Open your commandline and type:
 
 ## Task description
 The project is about using Convolutional Neural Networks (CNN) to classify handwritten digits.
-![minist-img](./imgs/abc.webp "minist")
+![minist-img](abc.webp "minist")
 
 To achieve it, the code will do the following:
 - Load the training config.
