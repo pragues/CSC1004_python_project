@@ -1,7 +1,8 @@
 from __future__ import print_function
 import argparse
+import os
+import multiprocessing
 
-import multiprocessing as mp
 # 上面一行是自己加的
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,7 +58,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
     :return:
     """
     sum_loss = 0
-    sum_acc=0
+    sum_acc = 0
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -69,18 +70,18 @@ def train(args, model, device, train_loader, optimizer, epoch):
         sum_loss += loss.item()
 
     '''TODO: Fill your code'''
-    count_train= 0
+    count_train = 0
     for i in range(output.shape[0]):
-        if torch.argmax(output[i],-1).item() == target[i].item():
-            count_train +=1
-    sum_acc += count_train/train_loader.batch_size
-    print("loss: "+str(loss.item()))
-    print("accuracy: "+str(sum_acc/len(train_loader.dataset)))
-    with open("train_"+str(args.seed)+".txt","a") as f:
-        f.write("loss: "+str(loss.item())+" accuracy: "+str(sum_acc/len(train_loader.dataset))+"\n")
+        if torch.argmax(output[i], -1).item() == target[i].item():
+            count_train += 1
+    sum_acc += count_train / train_loader.batch_size
+    print("loss: " + str(loss.item()))
+    print("accuracy: " + str(sum_acc / len(train_loader.dataset)))
+    with open("train_" + str(args.seed) + ".txt", "a") as f:
+        f.write("loss: " + str(loss.item()) + " accuracy: " + str(sum_acc / len(train_loader.dataset)) + "\n")
 
-    training_acc = sum_acc/len(train_loader.dataset)
-    training_loss = sum_loss/len(train_loader.dataset)   # replace this line:改成我得到的值
+    training_acc = sum_acc / len(train_loader.dataset)
+    training_loss = sum_loss / len(train_loader.dataset)  # replace this line:改成我得到的值
     return training_acc, training_loss
 
 
@@ -99,24 +100,24 @@ def test(args, model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             '''Fill your code'''
-            count=0
+            count = 0
             data, target = data.to(device), target.to(device)
             output = model(data.to(device))
-            loss= F.nll_loss(output, target.to(device))
+            loss = F.nll_loss(output, target.to(device))
             test_loss += loss.item()
             for i in range(output.shape[0]):
-               if torch.argmax(output[i], -1).item() == target[i].item():
-                   count+=1
-            correct+= count/test_loader.batch_size
-            print("loss: "+str(loss.item()))
-            print("accuracy: "+str(correct/len(test_loader.dataset)))
-            with open("test_"+str(args.seed)+".txt", "a") as f:
-                f.write("loss: "+str(loss.item())+ "accuracy: "+str(correct/len(test_loader.dataset))+"\n")
+                if torch.argmax(output[i], -1).item() == target[i].item():
+                    count += 1
+            correct += count / test_loader.batch_size
+            print("loss: " + str(loss.item()))
+            print("accuracy: " + str(correct / len(test_loader.dataset)))
+            with open("test_" + str(args.seed) + ".txt", "a") as f:
+                f.write("loss: " + str(loss.item()) + "accuracy: " + str(correct / len(test_loader.dataset)) + "\n")
             # pass
             # a variable is created and do not necessarily need to assign value
     test_loss /= len(test_loader.dataset)  # len: return the number of elements in a container
-    testing_acc = correct/len(test_loader.dataset)
-    testing_loss = test_loss/len(test_loader.dataset) # replace this line：比较
+    testing_acc = correct / len(test_loader.dataset)
+    testing_loss = test_loss / len(test_loader.dataset)  # replace this line：比较
     return testing_acc, testing_loss
 
 
@@ -143,7 +144,7 @@ def plot(epoches, performance, title):
     pass
 
 
-def run(config, pipe ):
+def run(config, pipe):
     use_cuda = not config.no_cuda and torch.cuda.is_available()
     use_mps = not config.no_mps and torch.backends.mps.is_available()
 
@@ -192,7 +193,7 @@ def run(config, pipe ):
         """record training info, Fill your code"""
         training_accuracies.append(train_acc)
         training_loss.append(train_loss)
-        test_acc, test_loss= test(config, model, device, test_loader)
+        test_acc, test_loss = test(config, model, device, test_loader)
         """record testing info, Fill your code"""
         testing_accuracies.append((test_acc))
         testing_loss.append(test_loss)
@@ -211,7 +212,7 @@ def run(config, pipe ):
         torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
-def plot_mean():
+def plot_mean(result_matrix):
     """
     Read the recorded results.
     Plot the mean results after three runs.
@@ -219,17 +220,77 @@ def plot_mean():
     """
     # 需要自己定义record data的函数
     """fill your code"""
+    training_accuracies_mean = []
+    training_loss_mean = []
+    testing_accuracies_mean = []
+    testing_loss_mean = []
+    epoches = []
 
+    for i in range(len(result_matrix[0][0])):
+        mean = 0
+        for j in range(len(result_matrix[0])):
+            mean += result_matrix[0][j][i] / len(result_matrix[0])
+        training_accuracies_mean.append(mean)
+    for i in range(len(result_matrix[1][0])):
+        mean = 0
+        for j in range(len(result_matrix[1])):
+            mean += result_matrix[1][j][i] / len(result_matrix[1])
+        training_loss_mean.append(mean)
+    for i in range(len(result_matrix[2][0])):
+        mean = 0
+        for j in range(len(result_matrix[2])):
+            mean += result_matrix[2][j][i] / len(result_matrix[2])
+        testing_accuracies_mean.append(mean)
+    for i in range(len(result_matrix[3][0])):
+        mean = 0
+        for j in range(len(result_matrix[3])):
+            mean += result_matrix[3][j][i] / len(result_matrix[3])
+        testing_loss_mean.append(mean)
+    for i in range(1, len(training_accuracies_mean) + 1):
+        epoches.append(i)
+
+    plot(epoches, training_accuracies_mean, "training_accuracies_mean")
+    plot(epoches, training_loss_mean, "training_loss_mean")
+
+    plot(epoches, testing_accuracies_mean, "testing_accuracies_mean")
+    plot(epoches, testing_loss_mean, "testing_loss_mean")
 
 
 if __name__ == '__main__':
-    arg = read_args()
+    pips=[]
+    processes=[]
+    final_result=[[],[],[],[]]
+    files= os.listdir(".")
+
+    #arg = read_args()
+
+    for file in files:
+        if ".txt" in file:
+            os.remove(file)
+            with open(file, "w") as f:
+                pass
+        if ".yaml" in file:
+            # multi-processing 的内容
+            arg = read_args()
+            arg.config_file = file
+            config = load_config(arg)
+            pipe_receive, pipe_send = multiprocessing.Pipe(duplex=False)
+            pips.append(pipe_receive)
+            processes.append(multiprocessing.Process(target=run, args=(config, pipe_send)))
+            processes[-1].start()
+
 
     """toad training settings"""
-    config = load_config(arg)
+    #config = load_config(arg)
 
     """train model and record results"""
-    run(config)
+    for pipe in pips:
+        final_result[0].append(pipe.recv())
+        final_result[1].append(pipe.recv())
+        final_result[2].append(pipe.recv())
+        final_result[3].append(pipe.recv())
+    for process in processes:
+        process.join()
 
     """plot the mean results"""
-    plot_mean()
+    plot_mean(final_result)
