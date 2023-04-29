@@ -12,7 +12,7 @@ import os
 import multiprocessing
 import argparse
 
-from config_utils import read_args
+from config_utils import read_args, load_config, Dict2Object
 
 
 class args_input:
@@ -84,7 +84,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         f.write("loss: " + str(loss.item()) + " accuracy: " + str(sum_acc / len(train_loader.dataset)) + "\n")
 
     training_acc = sum_acc / len(train_loader.dataset)
-    training_loss = sum_loss / len(train_loader.dataset)  # replace this line:改成我得到的值
+    training_loss = sum_loss / len(train_loader.dataset) # replace this line:改成我得到的值
     return training_acc, training_loss
 
 
@@ -120,7 +120,7 @@ def test(args, model, device, test_loader):
             # a variable is created and do not necessarily need to assign value
     # len: return the number of elements in a container
     testing_acc = correct / len(test_loader.dataset)
-    testing_loss = test_loss / len(test_loader.dataset)  # replace this line：比较
+    testing_loss = test_loss / len(test_loader.dataset) # replace this line：比较
     return testing_acc, testing_loss
 
 
@@ -141,10 +141,10 @@ def plot(epoches, performance, title):
     x_points = epoches
     y_points = performance
     plt.plot(x_points, y_points)
-    plt.title(title)
-    plt.savefig()
+    plt.ylabel(title)
+    #plt.savefig(title)
     plt.show()
-    pass
+    # pass
 
 
 def run(config, pip):
@@ -196,7 +196,7 @@ def run(config, pip):
         """record training info, Fill your code"""
         training_accuracies.append(train_acc)
         training_loss.append(train_loss)
-        test_acc, test_loss = test(config, model, device, test_loader)
+        test_acc, test_loss =test(config, model, device, test_loader)
         """record testing info, Fill your code"""
         testing_accuracies.append((test_acc))
         testing_loss.append(test_loss)
@@ -205,11 +205,12 @@ def run(config, pip):
         epoches.append(epoch)
 
     """plotting training performance with the records"""
-    plot(epoches, training_loss)
+    plot(epoches, testing_accuracies, "testing_accuracies"+str(config.seed))
+    plot(epoches, training_loss, "training_loss"+str(config.seed))
 
     """plotting testing performance with the records"""
-    plot(epoches, testing_accuracies)
-    plot(epoches, testing_loss)
+    plot(epoches, testing_accuracies, "testing_accuracies"+str(config.seed))
+    plot(epoches, testing_loss, "testing_loss"+str(config.seed))
 
     if config.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
@@ -267,7 +268,7 @@ if __name__ == '__main__':
     processes = []
     final_result = [[], [], [], []]
     files = os.listdir(".")
-    arg = read_args()
+    #arg = read_args()
 
     for file in files:
         if ".txt" in file:
@@ -278,7 +279,7 @@ if __name__ == '__main__':
             # multi-processing 的内容
             arg = args_input()
             arg.config_file = file
-            config = args_input()
+            config = load_config(arg)
             pipe_receive, pipe_send = multiprocessing.Pipe(duplex=False)
             pips.append(pipe_receive)
             processes.append(multiprocessing.Process(target=run, args=(config, pipe_send)))
